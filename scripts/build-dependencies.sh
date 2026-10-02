@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+patches="$PWD/scripts/patches"
 root="$PWD/.build/vendor"
 prefix="$PWD/.build/dependencies"
 mkdir -p "$root" "$prefix"
@@ -10,6 +11,7 @@ cd "$root"
 printf '%s\n' 'fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf  libusb.tar.bz2' '74a2b6e8cb4a0304e95b995496ea3ac644c29371649b892b856e22f12a0bdeed  libmtp.tar.gz' | shasum -a 256 -c -
 tar -xjf libusb.tar.bz2
 tar -xzf libmtp.tar.gz
+patch --batch --forward -d libmtp-1.1.23 -p1 < "$patches/libmtp-kindle-close-timeout.patch"
 export MACOSX_DEPLOYMENT_TARGET=13.0
 # Sandboxed macOS may deny sysctl kern.argmax; use a conservative command limit.
 export lt_cv_sys_max_cmd_len=65536

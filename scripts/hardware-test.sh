@@ -11,5 +11,5 @@ mkdir -p .build/tests/CMTP
 printf 'module CMTP { header "%s/Sources/CMTP/include/CMTP.h" export * }\n' "$PWD" > .build/tests/CMTP/module.modulemap
 clang -I"$prefix/include" -ISources/CMTP/include -c Sources/CMTP/CMTP.c -o .build/tests/CMTP.o
 export CLANG_MODULE_CACHE_PATH="$PWD/.build/clang-cache"
-xcrun swiftc ${SDKROOT:+-sdk "$SDKROOT"} -I .build/tests/CMTP -Xcc -I"$prefix/include" -L"$prefix/lib" -lmtp Sources/KindleUSB/Types.swift Sources/KindleUSB/MTPClient.swift Tests/Hardware/main.swift .build/tests/CMTP.o -o .build/tests/hardware
+xcrun swiftc ${SDKROOT:+-sdk "$SDKROOT"} -I .build/tests/CMTP -Xcc -I"$prefix/include" -L"$prefix/lib" -lmtp Sources/KindleUSB/Types.swift Sources/KindleUSB/UploadPlan.swift Sources/KindleUSB/TransferSupport.swift Sources/KindleUSB/MTPClient.swift Tests/Hardware/main.swift .build/tests/CMTP.o -o .build/tests/hardware
 .build/tests/hardware

@@ -1,0 +1,62 @@
+--- a/src/libusb1-glue.c
++++ b/src/libusb1-glue.c
+@@ -95,7 +95,7 @@
+ 
+ // Local functions
+ static LIBMTP_error_number_t init_usb();
+-static void close_usb(PTP_USB* ptp_usb);
++static void close_usb(PTP_USB* ptp_usb, int session_closed);
+ static int find_interface_and_endpoints(libusb_device *dev,
+ 					uint8_t *conf,
+ 					uint8_t *interface,
+@@ -2084,7 +2084,7 @@
+   /* TODO: do we need this for INTERRUPT (ptp_usb->intep) too? */
+ }
+ 
+-static void close_usb(PTP_USB* ptp_usb)
++static void close_usb(PTP_USB* ptp_usb, int session_closed)
+ {
+   if (!FLAG_NO_RELEASE_INTERFACE(ptp_usb)) {
+     /*
+@@ -2097,7 +2097,12 @@
+      * if the CLEAR_HALT is followed by a GET_STATUS (used to determine if the
+      * STALL is persistant or not).
+      */
+-    clear_stall(ptp_usb);
++    /* Kindle USB (2026-10-02): a successful Amazon CloseSession can take
++     * the Kindle out of USB mode. Do not probe endpoints after that reply.
++     * Retain stall recovery for failed sessions and other devices.
++     */
++    if (!session_closed || ptp_usb->rawdevice.device_entry.vendor_id != 0x1949)
++      clear_stall(ptp_usb);
+     libusb_release_interface(ptp_usb->handle, (int) ptp_usb->interface);
+   }
+   if (FLAG_FORCE_RESET_ON_CLOSE(ptp_usb)) {
+@@ -2310,7 +2315,7 @@
+     LIBMTP_ERROR("PTP_ERROR_IO: failed to open session, trying again after resetting USB interface\n");
+     LIBMTP_ERROR("LIBMTP libusb: Attempt to reset device\n");
+     libusb_reset_device (ptp_usb->handle);
+-    close_usb(ptp_usb);
++    close_usb(ptp_usb, 0);
+ 
+     if(init_ptp_usb(params, ptp_usb, ldevice) <0) {
+       LIBMTP_ERROR("LIBMTP PANIC: Could not init USB on second attempt\n");
+@@ -2358,9 +2363,16 @@
+ 
+ void close_device (PTP_USB *ptp_usb, PTPParams *params)
+ {
+-  if (ptp_closesession(params)!=PTP_RC_OK)
++  int session_closed = ptp_closesession(params) == PTP_RC_OK;
++  if (!session_closed)
+     LIBMTP_ERROR("ERROR: Could not close session!\n");
+-  close_usb(ptp_usb);
++  /* Bound best-effort cleanup probes if an Amazon session failed to close.
++   * Preserve the original timeout for CloseSession itself.
++   */
++  if (ptp_usb->rawdevice.device_entry.vendor_id == 0x1949 &&
++      ptp_usb->timeout > 500)
++    ptp_usb->timeout = 500;
++  close_usb(ptp_usb, session_closed);
+ }
+ 
+ void set_usb_device_timeout(PTP_USB *ptp_usb, int timeout)

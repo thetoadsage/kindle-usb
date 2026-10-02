@@ -33,6 +33,8 @@ struct BrowserView: View {
     @State private var editing: Entry?
     @State private var showName = false
     @State private var showDelete = false
+    @State private var showForgetUpload = false
+    @State private var showTransferDetails = false
     private var folderTitle: String { model.path.last?.name ?? model.storages.first(where: { $0.id == model.storageID })?.name ?? "Kindle" }
     var body: some View {
         VStack(spacing: 0) {
@@ -152,13 +154,34 @@ struct BrowserView: View {
                 Circle().fill(model.connected ? Color.green : Color.secondary).frame(width: 6, height: 6)
                 Text(model.status).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 Spacer()
-                if let progress = model.progress { ProgressView(value: progress).frame(width: 140); Button("Cancel") { model.cancel() } }
-                else if model.busy { ProgressView().controlSize(.small) }
+                if let progress = model.progress {
+                    ProgressView(value: progress).frame(width: 140)
+                    Text("\(Int(progress * 100))%") .font(.caption.monospacedDigit())
+                    Button("Cancel") { model.cancel() }
+                } else if model.busy { ProgressView().controlSize(.small) }
+                if model.transferDetails != nil {
+                    Button { showTransferDetails.toggle() } label: { Image(systemName: "info.circle") }
+                        .buttonStyle(.borderless).help("Last transfer timings")
+                        .popover(isPresented: $showTransferDetails) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Last transfer timings").font(.headline)
+                                Text(model.transferDetails ?? "").font(.caption).textSelection(.enabled)
+                            }.padding().frame(width: 340)
+                        }
+                }
             }.padding(.horizontal, 16).padding(.vertical, 8)
         }
         .toolbar {
+            if model.hasUnfinishedUpload {
+                Button { model.continueUpload() } label: { Label("Continue Upload", systemImage: "play.fill") }
+                    .help("Check the unfinished upload and send its remaining files")
+                    .disabled(!model.connected || model.busy)
+                Button { showForgetUpload = true } label: { Label("Forget Upload", systemImage: "xmark.circle") }
+                    .help("Forget the local checkpoint; Kindle files stay in place")
+                    .disabled(model.busy)
+            }
             Button { model.refresh() } label: { Label("Refresh", systemImage: "arrow.clockwise") }.disabled(model.busy)
-            Button { model.chooseUpload() } label: { Label("Add", systemImage: "plus") }.help("Add files or folders to this Kindle folder").disabled(!model.connected || model.busy)
+            Button { model.chooseUpload() } label: { Label("Add", systemImage: "plus") }.help("Add files or folders to this Kindle folder").disabled(!model.connected || model.busy || model.hasUnfinishedUpload)
             Button { model.save() } label: { Label("Save to Mac", systemImage: "square.and.arrow.down") }.disabled(model.busy || model.selected.filter { !$0.folder }.isEmpty)
             Menu {
                 Button("New Folder…") { editing = nil; editName = ""; showName = true }
@@ -167,6 +190,10 @@ struct BrowserView: View {
             } label: { Label("Manage", systemImage: "ellipsis.circle") }.disabled(!model.connected || model.busy)
             Button { model.disconnect() } label: { Label("Disconnect", systemImage: "eject") }.disabled(!model.connected || model.busy)
         }
+        .alert("Forget unfinished upload?", isPresented: $showForgetUpload) {
+            Button("Cancel", role: .cancel) {}
+            Button("Forget", role: .destructive) { model.forgetUpload() }
+        } message: { Text("This removes the local recovery record. Files and folders already on your Kindle stay in place; inspect them before starting another upload with the same names.") }
         .alert("USB operation", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
         .alert(editing == nil ? "New Folder" : "Rename", isPresented: $showName) {
             TextField("Name", text: $editName)
@@ -176,6 +203,6 @@ struct BrowserView: View {
         .alert("Delete \(model.selected.count) item(s)?", isPresented: $showDelete) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) { model.deleteSelected() }
-        } message: { Text("This permanently deletes the selected items from your Kindle. Only empty folders can be deleted. There is no Trash or Undo.") }
+        } message: { Text("This permanently deletes the selected items from your Kindle. Selected folders and everything inside them will be deleted. There is no Trash or Undo.") }
     }
 }

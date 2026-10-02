@@ -17,3 +17,9 @@ This repository publishes source code only. It does not publish a prebuilt app
 or the dependency libraries. If app bundles are published later, include the
 required library notices and make the corresponding library source available
 under the LGPL terms.
+
+Kindle USB modifies libmtp on 2026-10-02 to skip endpoint status probes after a
+successful Amazon session close and bound their timeouts after a failed close.
+The upstream forced-reset behavior is retained. The reproducible source patch is
+`scripts/patches/libmtp-kindle-close-timeout.patch`; the dependency build script
+applies it to the checksum-verified upstream source.
